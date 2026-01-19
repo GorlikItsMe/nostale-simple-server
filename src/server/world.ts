@@ -77,7 +77,9 @@ export default function startWorldServer(conf?: { port?: number, encryptionKey: 
     onDisconnect: (socket) => {
       // Kill server when client disconnects because we dont need keep login server running
       server.stop();
-    }
+    },
+
+    logger: true,
   });
   server.start(conf?.port || 1337);
   return server;
