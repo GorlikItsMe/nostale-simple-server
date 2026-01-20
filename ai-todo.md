@@ -4,22 +4,18 @@ This document outlines improvements needed to transform this "duct-taped" NosTal
 
 ## High Priority
 
-### 1. Fix Type Safety Issues in Cryptography Factory Functions
+### 1. ~~Fix Type Safety Issues in Cryptography Factory Functions~~ ✅ DONE
 **File:** `src/nostaleCryptography/client/index.ts`
 
 **Problem:** The `createCipher` function declares return type `EncryptLoginStream` but can actually return `EncryptWorldStream`. This is a type lie that breaks TypeScript's guarantees.
 
-```typescript
-// Current (wrong):
-export function createCipher(session?: number): EncryptLoginStream {
-    if (session == null) {
-        return new EncryptLoginStream();
-    } else if (Number.isFinite(session)) {
-        return new EncryptWorldStream(session); // TypeScript says this is EncryptLoginStream!
-    }
-```
+**Solution:** ~~Create proper union types or use function overloads to correctly represent what the function returns.~~
 
-**Solution:** Create proper union types or use function overloads to correctly represent what the function returns.
+**IMPLEMENTED:** Added function overloads to both `createCipher()` and `createDecipher()` so TypeScript correctly infers the return type based on arguments:
+- `createCipher()` → `EncryptLoginStream`
+- `createCipher(session: number)` → `EncryptWorldStream`
+- `createDecipher()` → `DecryptLoginStream`
+- `createDecipher(session: number)` → `DecryptWorldStream`
 
 ---
 
