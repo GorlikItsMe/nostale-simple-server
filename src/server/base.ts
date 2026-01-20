@@ -7,22 +7,23 @@ import type DecryptLoginStream from "../nostaleCryptography/server/login/decrypt
 import type EncryptWorldStream from "../nostaleCryptography/server/world/encrypt_stream";
 import type DecryptWorldStream from "../nostaleCryptography/server/world/decrypt_stream";
 
+type EncryptStream = EncryptLoginStream | EncryptWorldStream;
+type DecryptStream = DecryptLoginStream | DecryptWorldStream;
+
 export interface TcpServerConfig {
     onConnect?: (socket: Net.Socket, sendPacket: (packet: string) => void) => void;
     onPacket?: (sendPacket: (packet: string) => void, packet: string) => void;
     onDisconnect?: (socket: Net.Socket) => void;
 
-    encryptStream: EncryptLoginStream | EncryptWorldStream;
-    decryptStream: DecryptLoginStream | DecryptWorldStream;
+    encryptStreamFactory: () => EncryptStream;
+    decryptStreamFactory: () => DecryptStream;
 
     logger?: pino.Logger | boolean;
 }
+
 export class TcpServer {
-    public _pipeline: NodeJS.ReadWriteStream | undefined;
-    public encryptStream: EncryptLoginStream | EncryptWorldStream;
-    public decryptStream: DecryptLoginStream | DecryptWorldStream;
-    public encodingStream: NodeJS.ReadWriteStream;
-    public decodingStream: NodeJS.ReadWriteStream;
+    private encryptStreamFactory: () => EncryptStream;
+    private decryptStreamFactory: () => DecryptStream;
     public server: Net.Server;
     private logger: pino.Logger | undefined;
 
@@ -51,35 +52,40 @@ export class TcpServer {
         this.onConnect = conf?.onConnect
         this.onPacket = conf?.onPacket
         this.onDisconnect = conf?.onDisconnect
-        this.encryptStream = conf.encryptStream;
-        this.decryptStream = conf.decryptStream;
-        this.encodingStream = encodeStream("win1252");
-        this.decodingStream = decodeStream("win1252");
+        this.encryptStreamFactory = conf.encryptStreamFactory;
+        this.decryptStreamFactory = conf.decryptStreamFactory;
 
         this.server = Net.createServer((socket) => {
             this.logger?.info({ address: socket.remoteAddress, port: socket.remotePort }, "Client connected");
 
-            this._pipeline = pipeline(
-                this.encodingStream,
-                this.encryptStream,
+            const encryptStream = this.encryptStreamFactory();
+            const decryptStream = this.decryptStreamFactory();
+            const encodingStream = encodeStream("win1252");
+            const decodingStream = decodeStream("win1252");
+
+            pipeline(
+                encodingStream,
+                encryptStream,
                 socket,
-                this.decryptStream,
-                this.decodingStream,
+                decryptStream,
+                decodingStream,
                 (err) => {
-                    this.logger?.error({ err }, "Pipeline error");
+                    if (err) {
+                        this.logger?.error({ err }, "Pipeline error");
+                    }
                     socket.destroy();
                 }
             )
 
-            this.decodingStream.on("data", (data) => {
+            decodingStream.on("data", (data) => {
                 const packet: string = data.toString();
                 if (packet == undefined) return;
                 if (packet == "0") return; // uselsess packet like keep-alive or smth
                 this.logger?.debug({ packet }, "Received packet");
 
-                if (this.onPacket) this.onPacket((text) => this.encodingStream.write(text), packet);
+                if (this.onPacket) this.onPacket((text) => encodingStream.write(text), packet);
             })
-            this.encodingStream.on("data", (data) => {
+            encodingStream.on("data", (data) => {
                 this.logger?.debug({ packet: data.toString() }, "Sent packet");
             })
 
@@ -88,7 +94,7 @@ export class TcpServer {
                 this.logger?.info({ address: socket.remoteAddress, port: socket.remotePort }, "Client disconnected");
             })
 
-            if (this.onConnect) this.onConnect(socket, (text) => this.encodingStream.write(text));
+            if (this.onConnect) this.onConnect(socket, (text) => encodingStream.write(text));
         })
     }
 
@@ -98,6 +104,5 @@ export class TcpServer {
     }
     public stop() {
         this.server.close();
-        this._pipeline?.end();
     }
 }

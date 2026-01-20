@@ -26,10 +26,9 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey: 
   })
 
 
-  const encryptStream = new EncryptLoginStream();
   const server = new TcpServer({
-    encryptStream: encryptStream,
-    decryptStream: new DecryptLoginStream(),
+    encryptStreamFactory: () => new EncryptLoginStream(),
+    decryptStreamFactory: () => new DecryptLoginStream(),
     onPacket: (sendPacket, packet) => {
       if (packet == undefined) return;
 
@@ -41,7 +40,7 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey: 
 
     onDisconnect: (socket) => {
       // Kill server when client disconnects because we dont need keep login server running
-      server.stop();
+      // server.stop(); // Removed because multiple clients might connect
     },
 
     logger: true,
