@@ -1,4 +1,4 @@
-import { Transform, TransformCallback } from "stream";
+import { Transform, type TransformCallback } from "node:stream";
 
 export default class EncryptLoginStream extends Transform {
     constructor() {

@@ -1,4 +1,4 @@
-import { Transform, TransformCallback } from "stream";
+import { Transform, type TransformCallback } from "node:stream";
 import { DECRYPTION_TABLE, unpack } from "../../client/world/utils";
 
 export default class DecryptWorldStream extends Transform {
@@ -50,7 +50,7 @@ export default class DecryptWorldStream extends Transform {
         const sessionKey = this.encryptionKey & 0xff;
 
         // Create a copy to reverse encryption on
-        let decryptedForParsing = Buffer.from(packet);
+        const decryptedForParsing = Buffer.from(packet);
         
         // Reverse the encryption operations
         switch (sessionNumber) {
@@ -140,7 +140,6 @@ export default class DecryptWorldStream extends Transform {
                 fullyDecryptedPackets.push(decryptedPacket);
                 currentEncryptedPacket = [];
                 this.isFirstPacket = false; // Mark that we've processed the first packet
-                continue;
             }
         }
 

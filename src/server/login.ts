@@ -9,7 +9,7 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey?:
     name: "test",
     encryptionKey: conf?.encryptionKey || 1,
     // Fill whole screen with the same channel
-    channels: Array(7).fill(null).map((_, i) => {
+    channels: Array(7).fill(null).flatMap((_, i) => {
       const worldId = i + 1;
       return Array(7).fill(null).map((_, j) => {
         const channelId = j + 1;
@@ -22,7 +22,7 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey?:
           name: `localhost`
         }
       })
-    }).flat()
+    })
   })
 
 
