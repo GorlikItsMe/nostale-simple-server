@@ -29,6 +29,32 @@ bun start
 
 This will start both login server on port 4000 and world server on port 1337.
 
+## Configuration
+
+Configuration can be provided via environment variables or CLI flags. CLI flags
+override environment variables.
+
+Environment variables:
+- `LOGIN_PORT` (default: `4000`)
+- `WORLD_PORT` (default: `1337`)
+- `ENCRYPTION_KEY` (default: `2`)
+- `LOG_LEVEL` (default: `info`)
+
+CLI flags:
+- `--login-port`
+- `--world-port`
+- `--encryption-key`
+- `--log-level`
+
+Examples:
+```bash
+LOGIN_PORT=4001 WORLD_PORT=1338 ENCRYPTION_KEY=2 LOG_LEVEL=debug bun start
+```
+
+```bash
+bun start -- --login-port 4001 --world-port 1338 --encryption-key 2 --log-level debug
+```
+
 ### In-Game Commands
 
 - `$tp <mapId> <x> <y>` - Teleport to specified map coordinates
@@ -44,6 +70,29 @@ This will start both login server on port 4000 and world server on port 1337.
 ### Encryption
 
 - Custom encryption/decryption streams for both login and world servers (see `src/nostaleCryptography` folder)
+
+### Architecture
+
+- Each TCP connection uses its own encode/decode/encrypt/decrypt streams to avoid
+  cross-connection state leaks.
+- The login server responds to `NoS0575` with an `NsTeST` handshake packet.
+- The world server sends `OK` and a minimal character setup on connect.
+- The world server accepts simple `$` commands (currently `$tp`).
+
+### Packet Examples
+
+- Login handshake:
+  - Client: `NoS0575`
+  - Server: `NsTeST ...`
+- World teleport:
+  - Client: `$tp 1 77 119`
+  - Server: `say 1 10000 0 teleport to 1 77 119`
+
+### Tests
+
+```bash
+bun test
+```
 
 ### Character Setup
 
