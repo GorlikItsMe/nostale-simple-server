@@ -1,4 +1,4 @@
-import { Transform, TransformCallback } from "stream";
+import { Transform, type TransformCallback } from "node:stream";
 import { ENCRYPTION_TABLE, pack } from "./utils";
 
 export default class EncryptWorldStream extends Transform {

@@ -4,12 +4,12 @@ import DecryptLoginStream from "../nostaleCryptography/server/login/decrypt_stre
 import { createNsTeSTPacket } from "../packets/nstest";
 
 
-export default function startLoginServer(conf?: { port?: number, encryptionKey: number }) {
+export default function startLoginServer(conf?: { port?: number, encryptionKey?: number }) {
   const nstestPacket = createNsTeSTPacket({
     name: "test",
     encryptionKey: conf?.encryptionKey || 1,
     // Fill whole screen with the same channel
-    channels: Array(7).fill(null).map((_, i) => {
+    channels: Array(7).fill(null).flatMap((_, i) => {
       const worldId = i + 1;
       return Array(7).fill(null).map((_, j) => {
         const channelId = j + 1;
@@ -22,24 +22,27 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey: 
           name: `localhost`
         }
       })
-    }).flat()
+    })
   })
 
 
-  const encryptStream = new EncryptLoginStream();
   const server = new TcpServer({
-    encryptStream: encryptStream,
-    decryptStream: new DecryptLoginStream(),
-    onPacket: (sendPacket, packet) => {
+    createEncryptStream: () => new EncryptLoginStream(),
+    createDecryptStream: () => new DecryptLoginStream(),
+    onConnect: (context) => {
+      context.state.handshakeSent = false;
+    },
+    onPacket: (context, packet) => {
       if (packet == undefined) return;
 
-      if (packet.startsWith("NoS0575")) {
-        sendPacket(nstestPacket);
-        console.log("sent response")
+      if (packet.startsWith("NoS0575") && context.state.handshakeSent !== true) {
+        context.sendPacket(nstestPacket);
+        context.state.handshakeSent = true;
+        context.logger?.info("Sent NsTeST handshake");
       }
     },
 
-    onDisconnect: (socket) => {
+    onDisconnect: () => {
       // Kill server when client disconnects because we dont need keep login server running
       server.stop();
     },

@@ -1,4 +1,4 @@
-import { Transform, TransformCallback } from "stream";
+import { Transform, type TransformCallback } from "node:stream";
 
 function decrypt(packet: Buffer): Buffer {
     const length = packet.length - 1;

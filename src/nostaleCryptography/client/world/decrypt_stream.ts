@@ -1,4 +1,4 @@
-import { Transform, TransformCallback } from "stream";
+import { Transform, type TransformCallback } from "node:stream";
 import { DECRYPTION_TABLE, unpack } from "./utils";
 
 export default class DecryptWorldStream extends Transform {
@@ -16,7 +16,6 @@ export default class DecryptWorldStream extends Transform {
             return;
         }
         if (packet.length === 0) {
-            console.log("empty packet? wtf?");
             callback(null);
             return;
         }
@@ -44,7 +43,6 @@ export default class DecryptWorldStream extends Transform {
                     unpack(Buffer.from(currentDecryptedPacket), DECRYPTION_TABLE)
                 );
                 currentDecryptedPacket = [];
-                continue;
             }
         }
 

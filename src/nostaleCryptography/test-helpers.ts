@@ -1,4 +1,4 @@
-import { Readable, Transform } from "stream";
+import { Readable, type Transform } from "node:stream";
 
 /**
  * Encrypts data through an encrypt stream

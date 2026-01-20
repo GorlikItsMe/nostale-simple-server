@@ -99,7 +99,7 @@ export function unpack(packet: Buffer, charsToUnpack: number[]): Buffer {
 function GetMask(packet: Buffer, charset: number[]): boolean[] {
     const output: boolean[] = [];
     for (const i in packet) {
-        if (Object.prototype.hasOwnProperty.call(packet, i)) {
+        if (Object.hasOwn(packet, i)) {
             const ch = packet[i];
 
             if (ch == 0x0) {
