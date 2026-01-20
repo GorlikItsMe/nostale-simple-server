@@ -28,10 +28,9 @@ function getSimpleSetupPackets(props: { mapId: number, x: number, y: number } = 
 }
 
 export default function startWorldServer(conf?: { port?: number, encryptionKey: number }) {
-  const encryptStream = new EncryptWorldStream();
   const server = new TcpServer({
-    encryptStream: encryptStream,
-    decryptStream: new DecryptWorldStream(conf?.encryptionKey || 1),
+    createEncryptStream: () => new EncryptWorldStream(),
+    createDecryptStream: () => new DecryptWorldStream(conf?.encryptionKey || 1),
     onPacket: (sendPacket, packet) => {
       const sendMessage = (message: string) => sendPacket(`say 1 ${characterId} 0 ${message}`);
 

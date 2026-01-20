@@ -26,10 +26,9 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey: 
   })
 
 
-  const encryptStream = new EncryptLoginStream();
   const server = new TcpServer({
-    encryptStream: encryptStream,
-    decryptStream: new DecryptLoginStream(),
+    createEncryptStream: () => new EncryptLoginStream(),
+    createDecryptStream: () => new DecryptLoginStream(),
     onPacket: (sendPacket, packet) => {
       if (packet == undefined) return;
 
