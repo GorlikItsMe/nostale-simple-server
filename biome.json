@@ -13,10 +13,5 @@
         "noDoubleEquals": "off"
       }
     }
-  },
-  "files": {
-    "ignore": [
-      "bun.lock"
-    ]
   }
 }
