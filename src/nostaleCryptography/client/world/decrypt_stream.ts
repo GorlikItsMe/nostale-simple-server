@@ -16,7 +16,6 @@ export default class DecryptWorldStream extends Transform {
             return;
         }
         if (packet.length === 0) {
-            console.log("empty packet? wtf?");
             callback(null);
             return;
         }

@@ -4,7 +4,7 @@ import DecryptLoginStream from "../nostaleCryptography/server/login/decrypt_stre
 import { createNsTeSTPacket } from "../packets/nstest";
 
 
-export default function startLoginServer(conf?: { port?: number, encryptionKey: number }) {
+export default function startLoginServer(conf?: { port?: number, encryptionKey?: number }) {
   const nstestPacket = createNsTeSTPacket({
     name: "test",
     encryptionKey: conf?.encryptionKey || 1,
@@ -29,16 +29,20 @@ export default function startLoginServer(conf?: { port?: number, encryptionKey: 
   const server = new TcpServer({
     createEncryptStream: () => new EncryptLoginStream(),
     createDecryptStream: () => new DecryptLoginStream(),
-    onPacket: (sendPacket, packet) => {
+    onConnect: (context) => {
+      context.state.handshakeSent = false;
+    },
+    onPacket: (context, packet) => {
       if (packet == undefined) return;
 
-      if (packet.startsWith("NoS0575")) {
-        sendPacket(nstestPacket);
-        console.log("sent response")
+      if (packet.startsWith("NoS0575") && context.state.handshakeSent !== true) {
+        context.sendPacket(nstestPacket);
+        context.state.handshakeSent = true;
+        context.logger?.info("Sent NsTeST handshake");
       }
     },
 
-    onDisconnect: (socket) => {
+    onDisconnect: () => {
       // Kill server when client disconnects because we dont need keep login server running
       server.stop();
     },

@@ -3,10 +3,26 @@ import { pipeline, type Transform } from "node:stream";
 import { encodeStream, decodeStream } from "iconv-lite";
 import pino from "pino";
 
+export interface ConnectionContext {
+    id: number;
+    socket: Net.Socket;
+    sendPacket: (packet: string) => void;
+    logger?: pino.Logger;
+    state: Record<string, unknown>;
+}
+
+interface ConnectionRecord extends ConnectionContext {
+    encodingStream: Transform;
+    decodingStream: Transform;
+    encryptStream: Transform;
+    decryptStream: Transform;
+    pipeline: NodeJS.ReadWriteStream;
+}
+
 export interface TcpServerConfig {
-    onConnect?: (socket: Net.Socket, sendPacket: (packet: string) => void) => void;
-    onPacket?: (sendPacket: (packet: string) => void, packet: string) => void;
-    onDisconnect?: (socket: Net.Socket) => void;
+    onConnect?: (context: ConnectionContext) => void;
+    onPacket?: (context: ConnectionContext, packet: string) => void;
+    onDisconnect?: (context: ConnectionContext) => void;
 
     createEncryptStream: () => Transform;
     createDecryptStream: () => Transform;
@@ -16,18 +32,12 @@ export interface TcpServerConfig {
 export class TcpServer {
     public server: Net.Server;
     private logger: pino.Logger | undefined;
-    private connections: Set<{
-        socket: Net.Socket;
-        encodingStream: Transform;
-        decodingStream: Transform;
-        encryptStream: Transform;
-        decryptStream: Transform;
-        pipeline: NodeJS.ReadWriteStream;
-    }>;
+    private connections: Set<ConnectionRecord>;
+    private connectionCounter: number;
 
-    private onConnect?: (socket: Net.Socket, sendPacket: (packet: string) => void) => void;
-    private onPacket?: (sendPacket: (packet: string) => void, packet: string) => void;
-    private onDisconnect?: (socket: Net.Socket) => void;
+    private onConnect?: (context: ConnectionContext) => void;
+    private onPacket?: (context: ConnectionContext, packet: string) => void;
+    private onDisconnect?: (context: ConnectionContext) => void;
     private createEncryptStream: () => Transform;
     private createDecryptStream: () => Transform;
 
@@ -50,6 +60,7 @@ export class TcpServer {
             this.logger = undefined;
         }
         this.connections = new Set();
+        this.connectionCounter = 0;
         this.onConnect = conf?.onConnect
         this.onPacket = conf?.onPacket
         this.onDisconnect = conf?.onDisconnect
@@ -57,7 +68,13 @@ export class TcpServer {
         this.createDecryptStream = conf.createDecryptStream;
 
         this.server = Net.createServer((socket) => {
-            this.logger?.info({ address: socket.remoteAddress, port: socket.remotePort }, "Client connected");
+            const connectionId = ++this.connectionCounter;
+            const connectionLogger = this.logger?.child({
+                connectionId,
+                address: socket.remoteAddress,
+                port: socket.remotePort,
+            });
+            connectionLogger?.info("Client connected");
 
             const encodingStream = encodeStream("win1252") as Transform;
             const decodingStream = decodeStream("win1252") as Transform;
@@ -73,13 +90,22 @@ export class TcpServer {
                 decodingStream,
                 (err) => {
                     if (err) {
-                        this.logger?.error({ err }, "Pipeline error");
+                        connectionLogger?.error({ err }, "Pipeline error");
                     }
                     socket.destroy();
                 }
             ) as NodeJS.ReadWriteStream;
-            const connection = {
+            const context: ConnectionContext = {
+                id: connectionId,
                 socket,
+                sendPacket,
+                logger: connectionLogger,
+                state: {
+                    connectedAt: Date.now(),
+                },
+            };
+            const connection: ConnectionRecord = {
+                ...context,
                 encodingStream,
                 decodingStream,
                 encryptStream,
@@ -92,21 +118,21 @@ export class TcpServer {
                 const packet: string = data.toString();
                 if (packet == undefined) return;
                 if (packet == "0") return; // uselsess packet like keep-alive or smth
-                this.logger?.debug({ packet }, "Received packet");
+                connectionLogger?.debug({ packet }, "Received packet");
 
-                if (this.onPacket) this.onPacket(sendPacket, packet);
+                if (this.onPacket) this.onPacket(context, packet);
             })
             encodingStream.on("data", (data) => {
-                this.logger?.debug({ packet: data.toString() }, "Sent packet");
+                connectionLogger?.debug({ packet: data.toString() }, "Sent packet");
             })
 
             socket.on("close", () => {
                 this.connections.delete(connection);
-                if (this.onDisconnect) this.onDisconnect(socket);
-                this.logger?.info({ address: socket.remoteAddress, port: socket.remotePort }, "Client disconnected");
+                if (this.onDisconnect) this.onDisconnect(context);
+                connectionLogger?.info("Client disconnected");
             })
 
-            if (this.onConnect) this.onConnect(socket, sendPacket);
+            if (this.onConnect) this.onConnect(context);
         })
     }
 
